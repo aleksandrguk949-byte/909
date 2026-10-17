@@ -1,7 +1,11 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.57.4';
 
+const ALLOWED_ORIGIN = Deno.env.get('ALLOWED_ORIGIN') ?? Deno.env.get('ADMIN_CORS_ORIGIN') ?? '';
+if (!ALLOWED_ORIGIN) {
+  console.error('FATAL: ALLOWED_ORIGIN / ADMIN_CORS_ORIGIN secret is not set. Admin function refusing to start with wildcard CORS.');
+}
 const corsHeaders = {
-  'Access-Control-Allow-Origin': Deno.env.get('ALLOWED_ORIGIN') ?? Deno.env.get('ADMIN_CORS_ORIGIN') ?? '*',
+  'Access-Control-Allow-Origin': ALLOWED_ORIGIN || 'null',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Info, Apikey',
 };
@@ -19,7 +23,7 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } },
     });
     const { data: authData, error: authError } = await caller.auth.getUser();
-    if (authError || !authData.user) return json({ error: 'auth_required', message: 'Session expired' }, 401);
+    if (authError || !authData.user) return json({ error: 'auth_required', message: 'auth_required' }, 401);
 
     const admin = createClient(url, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
     const { data: me, error: profileError } = await admin
@@ -27,7 +31,7 @@ Deno.serve(async (req) => {
       .select('id,role,active')
       .eq('id', authData.user.id)
       .maybeSingle();
-    if (profileError) return json({ error: 'db_error', message: 'Profile lookup failed' }, 500);
+    if (profileError) { console.error('profile lookup failed:', profileError.message); return json({ error: 'db_error', message: 'db_error' }, 500); }
     if (!me || me.role !== 'admin' || !me.active) return json({ error: 'forbidden', message: 'Admin access required' }, 403);
 
     const b = await req.json();
@@ -49,7 +53,7 @@ Deno.serve(async (req) => {
       case 'list': {
         const { data, error } = await admin.from('profiles')
           .select('id,login,full_name,role,active,created_at').order('created_at');
-        if (error) return json({ error: 'db_error', message: error.message }, 400);
+        if (error) { console.error('list failed:', error.message); return json({ error: 'db_error', message: 'db_error' }, 400); }
         return json({ users: data });
       }
       case 'create': {
@@ -57,10 +61,10 @@ Deno.serve(async (req) => {
         const password = String(b.password ?? '');
         const fullName = String(b.full_name ?? '').trim();
         const role = ['admin', 'manager', 'supervisor'].includes(String(b.role)) ? String(b.role) : 'supervisor';
-        if (!/^[a-z0-9._-]{3,32}$/.test(login)) return json({ error: 'invalid_login', message: 'Login must be 3-32 chars: a-z, 0-9, . _ -' }, 400);
-        if (password.length < 1) return json({ error: 'weak_password', message: 'Password is required' }, 400);
-        if (!fullName) return json({ error: 'missing_name', message: 'Name is required' }, 400);
-        if (fullName.length > 100) return json({ error: 'name_too_long', message: 'Name must be 100 characters or fewer' }, 400);
+        if (!/^[a-z0-9._-]{3,32}$/.test(login)) return json({ error: 'invalid_login', message: 'invalid_login' }, 400);
+        if (password.length < 8) return json({ error: 'weak_password', message: 'weak_password' }, 400);
+        if (!fullName) return json({ error: 'missing_name', message: 'missing_name' }, 400);
+        if (fullName.length > 100) return json({ error: 'name_too_long', message: 'name_too_long' }, 400);
         const { data: created, error } = await admin.auth.admin.createUser({
           email: `${login}@${domain}`, password, email_confirm: true,
         });
@@ -70,30 +74,33 @@ Deno.serve(async (req) => {
             return json({ error: 'login_taken', message: 'login_taken' }, 400);
           }
           if (isWeakPasswordError(authMsg)) {
-            return json({ error: 'weak_password', message: authMsg }, 400);
+            return json({ error: 'weak_password', message: 'weak_password' }, 400);
           }
-          return json({ error: 'create_failed', message: authMsg }, 400);
+          console.error('create_failed:', authMsg);
+          return json({ error: 'create_failed', message: 'create_failed' }, 400);
         }
         const { error: pe } = await admin.from('profiles').insert({
           id: created.user.id, login, full_name: fullName, role,
         });
         if (pe) {
           await admin.auth.admin.deleteUser(created.user.id);
-          return json({ error: 'profile_not_saved', message: pe.message }, 400);
+          console.error('profile_not_saved:', pe.message);
+          return json({ error: 'profile_not_saved', message: 'profile_not_saved' }, 400);
         }
         return json({ id: created.user.id, login });
       }
       case 'set_password': {
         const target = await loadTarget();
-        if (!target) return json({ error: 'not_found', message: 'User not found' }, 404);
-        if (String(b.password ?? '').length < 1) return json({ error: 'weak_password', message: 'Password is required' }, 400);
+        if (!target) return json({ error: 'not_found', message: 'not_found' }, 404);
+        if (String(b.password ?? '').length < 8) return json({ error: 'weak_password', message: 'weak_password' }, 400);
         const { error } = await admin.auth.admin.updateUserById(b.id, { password: b.password });
         if (error) {
           const authMsg = error.message;
           if (isWeakPasswordError(authMsg)) {
-            return json({ error: 'weak_password', message: authMsg }, 400);
+            return json({ error: 'weak_password', message: 'weak_password' }, 400);
           }
-          return json({ error: 'update_failed', message: authMsg }, 400);
+          console.error('set_password failed:', authMsg);
+          return json({ error: 'update_failed', message: 'update_failed' }, 400);
         }
         return json({ ok: true });
       }
@@ -104,37 +111,40 @@ Deno.serve(async (req) => {
         if (!active && target.id === me.id) return json({ error: 'self_deactivate', message: 'Cannot deactivate yourself' }, 400);
         if (!active && target.role === 'admin' && (await countAdmins(target.id)) === 0) return json({ error: 'last_admin', message: 'Cannot deactivate the last admin' }, 400);
         const { error } = await admin.auth.admin.updateUserById(b.id, { ban_duration: active ? 'none' : '876000h' });
-        if (error) return json({ error: 'update_failed', message: error.message }, 400);
+        if (error) { console.error('set_active ban failed:', error.message); return json({ error: 'update_failed', message: 'update_failed' }, 400); }
         const { error: pe } = await admin.from('profiles').update({ active }).eq('id', b.id);
-        if (pe) return json({ error: 'update_failed', message: pe.message }, 400);
+        if (pe) { console.error('set_active profile failed:', pe.message); return json({ error: 'update_failed', message: 'update_failed' }, 400); }
+        if (!active) { try { await admin.auth.admin.signOut(b.id); } catch { /* best-effort */ } }
         return json({ ok: true });
       }
       case 'rename': {
         const target = await loadTarget();
-        if (!target) return json({ error: 'not_found', message: 'User not found' }, 404);
+        if (!target) return json({ error: 'not_found', message: 'not_found' }, 404);
         const name = String(b.full_name ?? '').trim();
-        if (!name) return json({ error: 'missing_name', message: 'Name is required' }, 400);
-        if (name.length > 100) return json({ error: 'name_too_long', message: 'Name must be 100 characters or fewer' }, 400);
+        if (!name) return json({ error: 'missing_name', message: 'missing_name' }, 400);
+        if (name.length > 100) return json({ error: 'name_too_long', message: 'name_too_long' }, 400);
         const { error: pe } = await admin.from('profiles').update({ full_name: name }).eq('id', b.id);
-        if (pe) return json({ error: 'update_failed', message: pe.message }, 400);
+        if (pe) { console.error('rename failed:', pe.message); return json({ error: 'update_failed', message: 'update_failed' }, 400); }
         return json({ ok: true });
       }
       case 'set_role': {
         const target = await loadTarget();
-        if (!target) return json({ error: 'not_found', message: 'User not found' }, 404);
-        if (!['admin', 'manager', 'supervisor'].includes(String(b.role))) return json({ error: 'invalid_role', message: 'Invalid role' }, 400);
-        if (target.role === 'admin' && b.role !== 'admin' && (await countAdmins(target.id)) === 0) return json({ error: 'last_admin', message: 'Cannot demote the last admin' }, 400);
+        if (!target) return json({ error: 'not_found', message: 'not_found' }, 404);
+        if (!['admin', 'manager', 'supervisor'].includes(String(b.role))) return json({ error: 'invalid_role', message: 'invalid_role' }, 400);
+        if (target.role === 'admin' && b.role !== 'admin' && (await countAdmins(target.id)) === 0) return json({ error: 'last_admin', message: 'last_admin' }, 400);
         const { error } = await admin.from('profiles').update({ role: b.role }).eq('id', b.id);
-        if (error) return json({ error: 'update_failed', message: error.message }, 400);
+        if (error) { console.error('set_role failed:', error.message); return json({ error: 'update_failed', message: 'update_failed' }, 400); }
         return json({ ok: true });
       }
       case 'delete': {
         const target = await loadTarget();
-        if (!target) return json({ error: 'not_found', message: 'User not found' }, 404);
-        if (target.id === me.id) return json({ error: 'self_delete', message: 'Cannot delete yourself' }, 400);
-        if (target.role === 'admin' && (await countAdmins(target.id)) === 0) return json({ error: 'last_admin', message: 'Cannot delete the last admin' }, 400);
+        if (!target) return json({ error: 'not_found', message: 'not_found' }, 404);
+        if (target.id === me.id) return json({ error: 'self_delete', message: 'self_delete' }, 400);
+        if (target.role === 'admin' && (await countAdmins(target.id)) === 0) return json({ error: 'last_admin', message: 'last_admin' }, 400);
+        try { await admin.auth.admin.signOut(b.id); } catch { /* best-effort: revoke sessions before deletion */ }
         const { error } = await admin.auth.admin.deleteUser(b.id);
-        return error ? json({ error: 'delete_failed', message: error.message }, 400) : json({ ok: true });
+        if (error) { console.error('delete failed:', error.message); return json({ error: 'delete_failed', message: 'delete_failed' }, 400); }
+        return json({ ok: true });
       }
       default:
         return json({ error: 'unknown_action', message: 'Unknown action' }, 400);

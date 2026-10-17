@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { ru } from './ru'
@@ -48,4 +49,12 @@ export function currentLang(): Lang {
 
 export function currentDict(): Dict {
   return dicts[currentLang()]
+}
+
+export function useDocumentDir(): void {
+  const lang = useI18nStore((s) => s.lang)
+  useEffect(() => {
+    document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr'
+    document.documentElement.lang = lang
+  }, [lang])
 }

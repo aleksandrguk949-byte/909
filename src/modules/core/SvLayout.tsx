@@ -1,12 +1,13 @@
 import { NavLink, useLocation } from 'react-router-dom'
-import { useI18n } from '@/i18n'
+import { useI18n, useDocumentDir } from '@/i18n'
 import { LangSwitcher } from '@/components/LangSwitcher'
 import { Building2, Wrench, Phone, User, LayoutDashboard, QrCode } from 'lucide-react'
-import { useEffect } from 'react'
+
 import { useAuth } from '@/modules/core/store'
 
 export function SvLayout({ children }: { children: React.ReactNode }) {
-  const { t, lang } = useI18n()
+  const { t } = useI18n()
+  useDocumentDir()
   const { pathname } = useLocation()
   const profile = useAuth((s) => s.profile)
 
@@ -22,11 +23,6 @@ export function SvLayout({ children }: { children: React.ReactNode }) {
     { to: '/sv/contacts', icon: Phone, label: t.nav.contacts },
     { to: '/sv/profile', icon: User, label: t.nav.profile },
   ]
-
-  useEffect(() => {
-    document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr'
-    document.documentElement.lang = lang
-  }, [lang])
 
   return (
     <div className="min-h-screen bg-app flex flex-col">

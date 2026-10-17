@@ -9,7 +9,7 @@ import { IncidentForm } from '@/modules/incidents/IncidentForm'
 import { QrHistoryPage } from '@/modules/qr/QrHistoryPage'
 import { useAuth, setupAuthListener } from '@/modules/core/store'
 import { LoginScreen } from '@/modules/core/AuthScreens'
-import { useI18n } from '@/i18n'
+import { useI18n, useDocumentDir } from '@/i18n'
 import { ToastContainer } from '@/lib/toast'
 import { Package, RefreshCw } from 'lucide-react'
 import { Suspense, useEffect, lazy } from 'react'
@@ -39,7 +39,8 @@ function QrIncidentRoute() {
 }
 
 function QrApp() {
-  const { t, lang } = useI18n()
+  const { t } = useI18n()
+  useDocumentDir()
   const state = useAuth((s) => s.state)
   const init = useAuth((s) => s.init)
   const retryInit = useAuth((s) => s.retryInit)
@@ -49,11 +50,6 @@ function QrApp() {
     setupAuthListener()
     init()
   }, [init])
-
-  useEffect(() => {
-    document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr'
-    document.documentElement.lang = lang
-  }, [lang])
 
   let content: React.ReactNode
   if (state === 'loading') {

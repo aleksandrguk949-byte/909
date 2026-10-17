@@ -1,18 +1,13 @@
-import { useEffect } from 'react'
-import { useI18n } from '@/i18n'
+import { useI18n, useDocumentDir } from '@/i18n'
 import { useAuth } from '@/modules/core/store'
 import { LangSwitcher } from '@/components/LangSwitcher'
 import { LogOut, Shield } from 'lucide-react'
 
 export function QrLayout({ children }: { children: React.ReactNode }) {
-  const { t, lang } = useI18n()
+  const { t } = useI18n()
+  useDocumentDir()
   const profile = useAuth((s) => s.profile)
   const signOut = useAuth((s) => s.signOut)
-
-  useEffect(() => {
-    document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr'
-    document.documentElement.lang = lang
-  }, [lang])
 
   return (
     <div className="min-h-screen bg-app flex flex-col">

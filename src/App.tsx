@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { useAuth, homePathForRole, setupAuthListener } from '@/modules/core/store'
 import { BootstrapScreen, LoginScreen } from '@/modules/core/AuthScreens'
 import { SvRoutes, AdminRoutes } from '@/modules/registry'
-import { useI18n } from '@/i18n'
+import { useI18n, useDocumentDir } from '@/i18n'
 import { Package, RefreshCw } from 'lucide-react'
 import { ToastContainer } from '@/lib/toast'
 
@@ -27,7 +27,8 @@ function QrRedirect() {
 }
 
 function App() {
-  const { t, lang } = useI18n()
+  const { t } = useI18n()
+  useDocumentDir()
   const state = useAuth((s) => s.state)
   const init = useAuth((s) => s.init)
   const retryInit = useAuth((s) => s.retryInit)
@@ -37,11 +38,6 @@ function App() {
     setupAuthListener()
     init()
   }, [init])
-
-  useEffect(() => {
-    document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr'
-    document.documentElement.lang = lang
-  }, [lang])
 
   let content: React.ReactNode
   if (state === 'loading') {

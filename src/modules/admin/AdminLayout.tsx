@@ -1,11 +1,12 @@
 import { NavLink, useLocation } from 'react-router-dom'
-import { useI18n } from '@/i18n'
+import { useI18n, useDocumentDir } from '@/i18n'
 import { LangSwitcher } from '@/components/LangSwitcher'
 import { Chrome as Home, Package, Plus, Building2, MoveHorizontal as MoreHorizontal } from 'lucide-react'
-import { useEffect } from 'react'
+
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
-  const { t, lang } = useI18n()
+  const { t } = useI18n()
+  useDocumentDir()
   const { pathname } = useLocation()
 
   const tabs = [
@@ -15,11 +16,6 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
     { to: '/admin/apartments', icon: Building2, label: t.admin.nav.apartments },
     { to: '/admin/more', icon: MoreHorizontal, label: t.admin.nav.more, end: true },
   ]
-
-  useEffect(() => {
-    document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr'
-    document.documentElement.lang = lang
-  }, [lang])
 
   return (
     <div className="min-h-screen bg-app flex flex-col lg:grid lg:grid-cols-[208px_1fr]">

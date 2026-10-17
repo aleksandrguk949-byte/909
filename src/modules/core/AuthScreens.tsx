@@ -1,22 +1,18 @@
 import { useState } from 'react'
 import { useAuth } from '@/modules/core/store'
-import { useI18n } from '@/i18n'
+import { useI18n, useDocumentDir } from '@/i18n'
 import { LangSwitcher } from '@/components/LangSwitcher'
 import { Package } from 'lucide-react'
-import { useEffect } from 'react'
+
 
 export function BootstrapScreen() {
-  const { t, lang } = useI18n()
+  const { t } = useI18n()
+  useDocumentDir()
   const { bootstrap } = useAuth()
   const error = useAuth((s) => s.error)
   const [login, setLogin] = useState('')
   const [fullName, setFullName] = useState('')
   const [password, setPassword] = useState('')
-
-  useEffect(() => {
-    document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr'
-    document.documentElement.lang = lang
-  }, [lang])
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -49,16 +45,12 @@ export function BootstrapScreen() {
 }
 
 export function LoginScreen({ title, subtitle }: { title?: string; subtitle?: string } = {}) {
-  const { t, lang } = useI18n()
+  const { t } = useI18n()
+  useDocumentDir()
   const { signIn } = useAuth()
   const error = useAuth((s) => s.error)
   const [login, setLogin] = useState('')
   const [password, setPassword] = useState('')
-
-  useEffect(() => {
-    document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr'
-    document.documentElement.lang = lang
-  }, [lang])
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
