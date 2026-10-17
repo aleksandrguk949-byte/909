@@ -118,8 +118,11 @@ export function NormTemplatesPage() {
       </div>
 
       <div className="px-4 pt-4 pb-28">
-        <p className="text-xs text-muted bg-app rounded-xl px-3 py-2.5 mb-4">
+        <p className="text-xs text-muted bg-app rounded-xl px-3 py-2.5 mb-2">
           {t.admin.normTemplates.hint}
+        </p>
+        <p className="text-xs text-muted bg-app rounded-xl px-3 py-2.5 mb-4">
+          {t.admin.normTemplates.customValuesNote}
         </p>
 
         {normTypeOrder.map((nt) => {

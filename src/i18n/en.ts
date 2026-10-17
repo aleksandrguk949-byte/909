@@ -411,6 +411,8 @@ export const en: Dict = {
       copyReplaceConfirm: 'This will overwrite all target norms. Continue?',
       copyApply: 'Copy',
       copyDone: 'Norms copied',
+      itemInactive: 'inactive',
+      qtyInvalid: 'Enter a valid quantity (0–999999.999, max 3 decimals)',
       recalcWarn: 'Recalculating will re-deduct stock based on current norms. Past stock movements may change.',
       sectionHints: {
         asset_standing: 'Inventory that should be in the apartment',
@@ -558,6 +560,7 @@ export const en: Dict = {
       qty: 'Quantity',
       save: 'Save',
       noNorms: 'No norms set',
+      customValuesNote: 'Apartments with custom values for an item are not affected by template changes.',
     },
     catalog: {
       title: 'Categories and items',

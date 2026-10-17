@@ -412,6 +412,8 @@ export const ar: Dict = {
       copyReplaceConfirm: 'ده هيكتب فوق كل النورمات المستهدفة. تكمّل؟',
       copyApply: 'انسخ',
       copyDone: 'النورمات اتنسخت',
+      itemInactive: 'متوقّفة',
+      qtyInvalid: 'ادخل كمية صحيحة (0–999999.999، max 3 خانات)',
       recalcWarn: 'إعادة الحساب هتخصم المخزون تاني حسب النورمات الحالية. الحركات القديمة ممكن تتغيّر.',
       sectionHints: {
         asset_standing: 'العُدد اللي لازم تكون في الشقة',
@@ -559,6 +561,7 @@ export const ar: Dict = {
       qty: 'الكمية',
       save: 'احفظ',
       noNorms: 'مفيش نورمات',
+      customValuesNote: 'الشقق اللي ليها قيم مخصّصة للحاجة دي مش بتتأثر بتغييرات القالب.',
     },
     catalog: {
       title: 'الفئات والحاجات',

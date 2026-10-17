@@ -54,12 +54,15 @@ export function ApartmentDetail() {
   const groupedNorms = useMemo(() => {
     const map = new Map<NormType, SvNorm[]>()
     for (const nr of norms) {
+      if (nr.qty <= 0) continue
       const list = map.get(nr.norm_type) ?? []
       list.push(nr)
       map.set(nr.norm_type, list)
     }
     return map
   }, [norms])
+
+  const visibleNormCount = useMemo(() => norms.filter((nr) => nr.qty > 0).length, [norms])
 
   const handleAddNote = async () => {
     if (!noteText.trim()) return
@@ -109,7 +112,7 @@ export function ApartmentDetail() {
       <div className="px-4 pt-4 pb-[calc(12rem+env(safe-area-inset-bottom,0px))]">
         {tab === 'norms' && (
           <div className="space-y-5">
-            {norms.length === 0 && <p className="text-sm text-muted text-center mt-8">{t.apartments.noNorms}</p>}
+            {visibleNormCount === 0 && <p className="text-sm text-muted text-center mt-8">{t.apartments.noNorms}</p>}
             {normTypeOrder.map((nt) => {
               const items = groupedNorms.get(nt)
               if (!items || items.length === 0) return null
