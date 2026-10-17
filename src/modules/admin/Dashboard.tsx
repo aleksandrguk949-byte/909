@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { fetchToOrder, fetchApartmentGaps, fetchShortageEvents, fetchApartmentsAdmin, fetchBuildings, fetchAllIncidents, ackEvents } from '@/modules/admin/api'
 import type { ToOrderRow, ApartmentGapRow, Apartment, Building, AptType, Incident, NormalizedShortageEvent } from '@/lib/database.types'
 import { useI18n } from '@/i18n'
+import { friendlyMessage } from '@/lib/errors'
+import { toast } from '@/lib/toast'
 import { formatQty } from '@/lib/format'
 import { TriangleAlert as AlertTriangle, TrendingDown, PackageX, ClipboardList, Boxes, Wrench, ArrowDownToLine, Trash2, CircleCheck as CheckCircle2, X, CheckCheck } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
@@ -60,8 +62,8 @@ export function Dashboard() {
     try {
       await ackEvents([id])
       setShortages((prev) => prev.filter((ev) => ev.id !== id))
-    } catch {
-      // leave as-is; user can retry
+    } catch (e) {
+      toast(friendlyMessage(e), 'error')
     }
   }
 
@@ -71,8 +73,8 @@ export function Dashboard() {
     try {
       await ackEvents(ids)
       setShortages([])
-    } catch {
-      // leave as-is; user can retry
+    } catch (e) {
+      toast(friendlyMessage(e), 'error')
     }
   }
 

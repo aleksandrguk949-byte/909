@@ -6,7 +6,7 @@ import { useAuth } from '@/modules/core/store'
 import { CleaningHistoryList } from '@/modules/history/CleaningHistoryList'
 import { IncidentHistoryList } from '@/modules/history/IncidentHistoryList'
 import { fetchApartments } from '@/modules/apartments/api'
-import { friendlyMessage } from '@/lib/errors'
+import { friendlyMessage, toApiError } from '@/lib/errors'
 import { ErrorState } from '@/components/ErrorState'
 import type { SvApartment } from '@/lib/database.types'
 
@@ -16,44 +16,42 @@ export function QrHistoryPage() {
   const { t } = useI18n()
   const { id } = useParams<{ id: string }>()
   const profile = useAuth((s) => s.profile)
-  const aptId = id ? Number(id) : undefined
+  const validId = id !== undefined && /^\d+$/.test(id) ? Number(id) : undefined
   const [apartment, setApartment] = useState<SvApartment | null>(null)
   const [tab, setTab] = useState<Tab>('cleaning')
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(validId != null)
+  const [error, setError] = useState<string | null>(validId == null ? t.qr.notFound : null)
   const [offline, setOffline] = useState(false)
 
   useEffect(() => {
-    if (!aptId || !profile) return
+    if (validId == null || !profile) return
     setLoading(true)
     setError(null)
     fetchApartments(profile.id)
       .then((all) => {
-        const apt = all.find((a) => a.id === aptId)
-        if (apt) setApartment(apt)
+        setApartment(all.find((a) => a.id === validId) ?? null)
       })
       .catch((e) => {
-        if (friendlyMessage(e) === t.errors.network) {
+        if (toApiError(e).isNetwork) {
           setOffline(true)
         } else {
           setError(friendlyMessage(e))
         }
       })
       .finally(() => setLoading(false))
-  }, [aptId, profile, t.errors.network])
+  }, [validId, profile])
 
   const handleRetry = () => {
-    if (!aptId || !profile) return
+    if (validId == null || !profile) return
     setOffline(false)
     setError(null)
     setLoading(true)
     fetchApartments(profile.id)
       .then((all) => {
-        const apt = all.find((a) => a.id === aptId)
-        if (apt) setApartment(apt)
+        setApartment(all.find((a) => a.id === validId) ?? null)
       })
       .catch((e) => {
-        if (friendlyMessage(e) === t.errors.network) {
+        if (toApiError(e).isNetwork) {
           setOffline(true)
         } else {
           setError(friendlyMessage(e))
@@ -82,7 +80,7 @@ export function QrHistoryPage() {
   }
 
   if (error) {
-    return <ErrorState onRetry={handleRetry} />
+    return <ErrorState message={error} onRetry={validId == null ? undefined : handleRetry} />
   }
 
   return (
@@ -99,8 +97,8 @@ export function QrHistoryPage() {
         <TabButton active={tab === 'incidents'} onClick={() => setTab('incidents')} icon={Wrench} label={t.history.incidentsTab} testId="tab-incidents" />
       </div>
 
-      {tab === 'cleaning' && <CleaningHistoryList apartmentId={aptId} canDelete={false} />}
-      {tab === 'incidents' && <IncidentHistoryList apartmentId={aptId} canDelete={false} />}
+      {tab === 'cleaning' && <CleaningHistoryList apartmentId={validId} canDelete={false} />}
+      {tab === 'incidents' && <IncidentHistoryList apartmentId={validId} canDelete={false} />}
     </div>
   )
 }

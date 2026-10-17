@@ -3,16 +3,18 @@ import { useI18n } from '@/i18n'
 import { LangSwitcher } from '@/components/LangSwitcher'
 import { Building2, Wrench, Phone, User, LayoutDashboard, QrCode } from 'lucide-react'
 import { useEffect } from 'react'
-import { useAuth, homePathForRole } from '@/modules/core/store'
+import { useAuth } from '@/modules/core/store'
 
 export function SvLayout({ children }: { children: React.ReactNode }) {
   const { t, lang } = useI18n()
   const { pathname } = useLocation()
   const profile = useAuth((s) => s.profile)
 
-  const adminLink = profile && (profile.role === 'admin' || profile.role === 'manager')
-    ? homePathForRole(profile.role)
-    : null
+  const adminLink = profile?.role === 'admin'
+    ? { to: '/admin', ariaLabel: t.admin.nav.home, external: false }
+    : profile?.role === 'manager'
+      ? { to: '/qr.html#/qr', ariaLabel: t.nav.qr, external: true }
+      : null
 
   const tabs = [
     { to: '/sv', icon: Building2, label: t.nav.apartments, end: true },
@@ -32,15 +34,23 @@ export function SvLayout({ children }: { children: React.ReactNode }) {
         <span className="font-semibold text-ink text-sm">{t.app.name}</span>
         <div className="flex items-center gap-2">
           {adminLink && (
-            <NavLink
-              to={adminLink}
-              className="flex items-center gap-1 text-xs text-muted hover:text-accent transition-colors"
-              aria-label={profile?.role === 'admin' ? t.admin.nav.home : t.nav.qr}
-            >
-              {profile?.role === 'admin'
-                ? <LayoutDashboard className="w-4 h-4" />
-                : <QrCode className="w-4 h-4" />}
-            </NavLink>
+            adminLink.external ? (
+              <a
+                href={adminLink.to}
+                className="flex items-center gap-1 text-xs text-muted hover:text-accent transition-colors"
+                aria-label={adminLink.ariaLabel}
+              >
+                <QrCode className="w-4 h-4" />
+              </a>
+            ) : (
+              <NavLink
+                to={adminLink.to}
+                className="flex items-center gap-1 text-xs text-muted hover:text-accent transition-colors"
+                aria-label={adminLink.ariaLabel}
+              >
+                <LayoutDashboard className="w-4 h-4" />
+              </NavLink>
+            )
           )}
           <LangSwitcher compact />
         </div>

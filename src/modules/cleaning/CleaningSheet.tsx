@@ -40,6 +40,7 @@ export function CleaningSheet({ backTo }: { backTo?: string }) {
   const [confirmClose, setConfirmClose] = useState(false)
   const [converting, setConverting] = useState(false)
   const clientOpIdRef = useRef<string>(crypto.randomUUID())
+  const submittedRef = useRef(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const previewsRef = useRef<string[]>([])
 
@@ -187,8 +188,10 @@ export function CleaningSheet({ backTo }: { backTo?: string }) {
   }
 
   const handleConfirm = async () => {
+    if (submittedRef.current) return
     if (needsStaff && selectedStaff.length === 0) { setError(t.cleaning.needLead); return }
     if (!profile) return
+    submittedRef.current = true
     setSubmitting(true)
     setError(null)
     const cleanedAt = new Date().toISOString()
@@ -227,6 +230,7 @@ export function CleaningSheet({ backTo }: { backTo?: string }) {
         }
       } else {
         setError(friendlyMessage(e))
+        submittedRef.current = false
       }
     } finally { setSubmitting(false) }
   }

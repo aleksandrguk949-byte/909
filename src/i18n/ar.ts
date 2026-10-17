@@ -222,7 +222,7 @@ export const ar: Dict = {
     loginRequired: 'ادخل على النظام',
     loginSubtitle: 'امسح QR للشقة عشان تشوف النورمات وتسجّل النظافة',
     notFound: 'الشقة مش موجودة أو مش شغّالة',
-    cleanedToday: 'اتنظفت النهارده',
+    cleanedToday: 'اتنضفت النهارده',
     adminNotice: 'داخل كمدير',
     logout: 'خروج',
     whatShouldBe: 'اللي لازم يكون موجود',
@@ -413,7 +413,7 @@ export const ar: Dict = {
       copyApply: 'انسخ',
       copyDone: 'النورمات اتنسخت',
       itemInactive: 'متوقّفة',
-      qtyInvalid: 'ادخل كمية صحيحة (0–999999.999، max 3 خانات)',
+      qtyInvalid: 'ادخل كمية صحيحة (0–999999.999، ٣ خانات كحد أقصى)',
       recalcWarn: 'إعادة الحساب هتخصم المخزون تاني حسب النورمات الحالية. الحركات القديمة ممكن تتغيّر.',
       sectionHints: {
         asset_standing: 'العُدد اللي لازم تكون في الشقة',
@@ -477,7 +477,7 @@ export const ar: Dict = {
       save: 'احفظ',
       delete: 'امسح',
       confirmDelete: 'تمسح الموظف؟',
-      housekeeper: 'النظافة',
+      housekeeper: 'عامل نظافة',
       noStaff: 'مفيش موظفين',
     },
     users: {

@@ -1,7 +1,7 @@
 import { currentDict } from '@/i18n'
 
 const NETWORK_PATTERNS = /failed to fetch|network|load failed|timeout/i
-const NETWORK_STATUSES = new Set([0, 408, 429, 502, 503, 504])
+const NETWORK_STATUSES = new Set([0, 408, 502, 503, 504])
 const AUTH_CODES = new Set(['PGRST301'])
 const AUTH_PATTERNS = /jwt expired/i
 

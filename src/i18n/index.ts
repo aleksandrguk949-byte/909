@@ -34,15 +34,18 @@ export const useI18nStore = create<I18nState>()(
 export function useI18n(): { t: Dict; lang: Lang; setLang: (l: Lang) => void; n: (s: string) => string } {
   const lang = useI18nStore((s) => s.lang)
   const setLang = useI18nStore((s) => s.setLang)
-  const t = dicts[lang]
-  const n = (s: string) => convertNumbers(s, lang)
-  return { t, lang, setLang, n }
+  // A stale/corrupt persisted value must not make dicts[lang] undefined (white screen).
+  const safeLang: Lang = lang in dicts ? lang : 'ru'
+  const t = dicts[safeLang]
+  const n = (s: string) => convertNumbers(s, safeLang)
+  return { t, lang: safeLang, setLang, n }
 }
 
 export function currentLang(): Lang {
-  return useI18nStore.getState().lang
+  const lang = useI18nStore.getState().lang
+  return lang in dicts ? lang : 'ru'
 }
 
 export function currentDict(): Dict {
-  return dicts[useI18nStore.getState().lang]
+  return dicts[currentLang()]
 }

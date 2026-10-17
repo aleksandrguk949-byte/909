@@ -2,26 +2,39 @@ import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { useI18n } from '@/i18n'
+import { toApiError, friendlyMessage } from '@/lib/errors'
 import type { SvApartment } from '@/lib/database.types'
-import { Search, ChevronRight } from 'lucide-react'
+import { Search, ChevronRight, RefreshCw } from 'lucide-react'
 
 export function QrIndexPage() {
   const { t } = useI18n()
   const navigate = useNavigate()
   const [apartments, setApartments] = useState<SvApartment[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
 
-  useEffect(() => {
+  const load = () => {
+    setLoading(true)
+    setError(null)
     supabase
       .from('sv_apartments')
       .select('id,code,building,type,status,last_cleaned_at')
       .order('code')
-      .then(({ data, error }) => {
-        if (error) console.error(error.message)
-        setApartments(data ?? [])
+      .then(({ data, error: e, status }) => {
+        if (e) {
+          setError(friendlyMessage(toApiError(e, status)))
+          setApartments([])
+        } else {
+          setApartments(data ?? [])
+        }
         setLoading(false)
       })
+  }
+
+  useEffect(() => {
+    load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const grouped = useMemo(() => {
@@ -37,6 +50,21 @@ export function QrIndexPage() {
   }, [apartments, search])
 
   if (loading) return <div className="px-4 pt-8 text-center text-muted">{t.app.loading}</div>
+
+  if (error) {
+    return (
+      <div className="px-4 pt-8 text-center">
+        <p className="text-sm text-bad mb-4">{error}</p>
+        <button
+          onClick={load}
+          className="inline-flex items-center gap-2 bg-accent text-white rounded-xl px-5 py-2.5 text-sm font-medium"
+        >
+          <RefreshCw className="w-4 h-4" />
+          {t.retry}
+        </button>
+      </div>
+    )
+  }
 
   return (
     <div className="px-4 pt-4 pb-8">

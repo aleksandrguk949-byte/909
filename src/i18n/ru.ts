@@ -324,7 +324,7 @@ export const ru = {
       operation: 'Операция',
       receipt: 'Приход на склад',
       issueApt: 'Выдать в квартиру',
-      returnApt: 'Вернуть со склада',
+      returnApt: 'Вернуть из квартиры',
       writeoffApt: 'Списать из квартиры',
       writeoffWh: 'Списать со склада',
       issueHolder: 'Выдать на руки',
