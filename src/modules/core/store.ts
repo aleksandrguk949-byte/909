@@ -218,17 +218,22 @@ export function setupAuthListener() {
     }
 
     if (event === 'USER_UPDATED') {
-      const session = supabase.auth.getSession()
-      session.then(({ data: { session: s } }) => {
-        if (s) {
-          fetchProfile(s.user.id).then((profile) => {
-            if (profile && profile.active) {
-              cacheProfile(profile)
-              useAuth.setState({ profile, error: null })
-            }
-          }).catch(() => {})
+      // Async work must not run inside the synchronous callback — wrap it so
+      // the auth lock held during the event is released before we call back
+      // into supabase.auth (getSession would otherwise deadlock).
+      void (async () => {
+        const { data: { session: s } } = await supabase.auth.getSession()
+        if (!s) return
+        try {
+          const profile = await fetchProfile(s.user.id)
+          if (profile && profile.active) {
+            cacheProfile(profile)
+            useAuth.setState({ profile, error: null })
+          }
+        } catch {
+          // keep current profile; transient fetch failure shouldn't sign out
         }
-      })
+      })()
       return
     }
 
