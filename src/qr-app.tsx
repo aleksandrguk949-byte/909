@@ -1,5 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import './index.css'
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QrLayout } from '@/modules/qr/QrLayout'
 import { QrIndexPage } from '@/modules/qr/QrIndexPage'
