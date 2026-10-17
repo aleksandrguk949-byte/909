@@ -27,7 +27,7 @@ async function adminClient() {
   return c
 }
 
-async function createCleaning(c: ReturnType<typeof createClient>, apartmentId: number, note: string) {
+async function createCleaning(c: Awaited<ReturnType<typeof adminClient>>, apartmentId: number, note: string) {
   const { data: staff, error: staffErr } = await c.from('staff').select('id').eq('active', true).limit(1)
   if (staffErr) throw staffErr
   if (!staff || staff.length === 0) {

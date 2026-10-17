@@ -42,7 +42,7 @@ async function svClient() {
  * Returns the event row from sv_cleaning_events.
  * Skips the test if no active staff exist.
  */
-async function createCleaning(c: ReturnType<typeof createClient>, apartmentId: number, note: string) {
+async function createCleaning(c: Awaited<ReturnType<typeof adminClient>>, apartmentId: number, note: string) {
   const { data: staff, error: staffErr } = await c.from('sv_staff').select('id').limit(1)
   if (staffErr) throw staffErr
   if (!staff || staff.length === 0) {

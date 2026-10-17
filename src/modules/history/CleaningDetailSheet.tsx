@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Loader as Loader2, X, Trash2, Camera, Video, RotateCcw } from 'lucide-react'
+
 import { useI18n } from '@/i18n'
 import { formatDateTime, formatQty } from '@/lib/format'
 import { friendlyMessage, toApiError } from '@/lib/errors'
@@ -44,6 +45,17 @@ export function CleaningDetailSheet({ event, canDelete, onClose, onDeleted, onRe
   }, [event.id])
 
   useEffect(() => { loadLines() }, [loadLines])
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      if (showMedia) return
+      if (confirmDelete) { setConfirmDelete(false); setReason(''); return }
+      onClose()
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [showMedia, confirmDelete, onClose])
 
   const normTypeLabels: Record<NormType, string> = {
     asset_standing: t.apartments.normInventory,

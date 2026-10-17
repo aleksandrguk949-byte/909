@@ -50,3 +50,6 @@ jobs:
           E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
           E2E_SV_LOGIN: ${{ secrets.E2E_SV_LOGIN }}
           E2E_SV_PASSWORD: ${{ secrets.E2E_SV_PASSWORD }}
+          E2E_QR_APARTMENT_ID: ${{ secrets.E2E_QR_APARTMENT_ID }}
+          E2E_DISABLED_LOGIN: ${{ secrets.E2E_DISABLED_LOGIN }}
+          E2E_DISABLED_PASSWORD: ${{ secrets.E2E_DISABLED_PASSWORD }}

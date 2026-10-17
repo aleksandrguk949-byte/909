@@ -147,12 +147,16 @@ test.describe('Security — stock_moves integrity', () => {
       .select('id', { count: 'exact', head: true })
 
     const c = await svClient()
-    await c.rpc('_insert_move' as never, {
-      p_item: 1, p_from: 1, p_to: 2, p_qty: 1, p_cost: null,
-      p_src: 'manual', p_src_id: null, p_apt: null, p_staff: null,
-      p_doc: null, p_note: null, p_moved: new Date().toISOString(),
-      p_reverses: null,
-    } as never).catch(() => {})
+    try {
+      await c.rpc('_insert_move' as never, {
+        p_item: 1, p_from: 1, p_to: 2, p_qty: 1, p_cost: null,
+        p_src: 'manual', p_src_id: null, p_apt: null, p_staff: null,
+        p_doc: null, p_note: null, p_moved: new Date().toISOString(),
+        p_reverses: null,
+      } as never)
+    } catch {
+      // RPC must be blocked; any error is fine
+    }
 
     const { count: after } = await admin
       .from('stock_moves')

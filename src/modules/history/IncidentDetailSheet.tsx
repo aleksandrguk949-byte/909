@@ -1,4 +1,5 @@
-import { useState, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+
 import { Loader as Loader2, X, Trash2, Camera, Video } from 'lucide-react'
 import { useI18n } from '@/i18n'
 import { formatDateTime } from '@/lib/format'
@@ -43,6 +44,17 @@ export function IncidentDetailSheet({ incident, canDelete, onClose, onDeleted }:
   const mediaPaths = incident.photo_paths ?? []
   const photoCount = mediaPaths.filter((p) => !isVideoPath(p)).length
   const videoCount = mediaPaths.filter((p) => isVideoPath(p)).length
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      if (showMedia) return
+      if (confirmDelete) { setConfirmDelete(false); setReason(''); return }
+      onClose()
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [showMedia, confirmDelete, onClose])
 
   const handleDelete = useCallback(async () => {
     setDeleting(true)
