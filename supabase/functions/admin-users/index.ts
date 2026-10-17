@@ -1,11 +1,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.57.4';
 
-const ALLOWED_ORIGIN = Deno.env.get('ALLOWED_ORIGIN') ?? Deno.env.get('ADMIN_CORS_ORIGIN') ?? '';
-if (!ALLOWED_ORIGIN) {
-  console.error('FATAL: ALLOWED_ORIGIN / ADMIN_CORS_ORIGIN secret is not set. Admin function refusing to start with wildcard CORS.');
-}
 const corsHeaders = {
-  'Access-Control-Allow-Origin': ALLOWED_ORIGIN || 'null',
+  'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Info, Apikey',
 };
