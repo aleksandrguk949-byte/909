@@ -199,8 +199,14 @@ function NormEditorModal({
 }) {
   const { t } = useI18n()
   const [itemId, setItemId] = useState(norm?.item_id ?? 0)
-  const [qty, setQty] = useState(String(norm?.qty ?? 0))
-  const qtyValid = isFinite(Number(qty)) && Number(qty) >= 0
+  const [qty, setQty] = useState(String(norm?.qty ?? 1))
+  const qtyValid = useMemo(() => {
+    const num = Number(qty)
+    if (!isFinite(num) || num < 0 || num > 999999.999) return false
+    const dot = qty.indexOf('.')
+    if (dot !== -1 && qty.length - dot - 1 > 3) return false
+    return true
+  }, [qty])
   const [note, setNote] = useState(norm?.note ?? '')
   const selectedItem = items.find((i) => i.item_id === itemId)
 
@@ -222,9 +228,12 @@ function NormEditorModal({
           <div>
             <label className="block text-sm text-ink mb-1">{t.admin.normTemplates.qty}</label>
             <div className="flex items-center gap-2">
-              <input type="number" min="0" step="0.001" value={qty} onChange={(e) => setQty(e.target.value)} className="flex-1 bg-app rounded-xl px-4 py-2.5 text-sm focus:outline-none" />
+              <input type="number" min="0" step="0.001" value={qty} onChange={(e) => setQty(e.target.value)} className={`flex-1 bg-app rounded-xl px-4 py-2.5 text-sm focus:outline-none ${!qtyValid ? 'border border-bad' : ''}`} />
               {selectedItem && <span className="text-sm text-muted shrink-0">{unitShort(selectedItem.base_unit, t.common.units)}</span>}
             </div>
+            {!qtyValid && (
+              <p className="text-xs text-bad mt-1">{t.admin.apartments.qtyInvalid}</p>
+            )}
           </div>
           <div>
             <label className="block text-sm text-ink mb-1">{t.admin.move.note}</label>

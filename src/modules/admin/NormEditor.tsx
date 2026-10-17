@@ -46,7 +46,10 @@ export function NormEditor({
 
   const qtyValid = useMemo(() => {
     const num = Number(qtyStr)
-    return isFinite(num) && num >= 0
+    if (!isFinite(num) || num < 0 || num > 999999.999) return false
+    const dot = qtyStr.indexOf('.')
+    if (dot !== -1 && qtyStr.length - dot - 1 > 3) return false
+    return true
   }, [qtyStr])
 
   const filteredItems = useMemo(() => {

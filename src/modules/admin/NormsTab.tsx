@@ -244,7 +244,8 @@ export function NormsTab({
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => handleAdd(nt)}
-                  className="text-accent text-xs flex items-center gap-1 min-h-[44px] px-2"
+                  disabled={!catalogLoaded}
+                  className="text-accent text-xs flex items-center gap-1 min-h-[44px] px-2 disabled:opacity-40"
                 >
                   <Plus className="w-3 h-3" /> {t.admin.apartments.addNorm}
                 </button>
@@ -327,7 +328,8 @@ export function NormsTab({
                       <div className="flex items-center gap-1 shrink-0">
                         <button
                           onClick={() => handleEdit(row, nt)}
-                          className="text-muted hover:text-accent p-1.5 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                          disabled={!catalogLoaded}
+                          className="text-muted hover:text-accent p-1.5 min-h-[44px] min-w-[44px] flex items-center justify-center disabled:opacity-40"
                         >
                           <Edit3 className="w-3.5 h-3.5" />
                         </button>
