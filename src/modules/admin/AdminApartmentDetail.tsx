@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   fetchApartmentsAdmin,
@@ -60,10 +60,16 @@ export function AdminApartmentDetail() {
   const [recalcStaffIds, setRecalcStaffIds] = useState<number[]>([])
   const [historyRefresh, setHistoryRefresh] = useState(0)
 
-  const loadAll = () => {
+  const loadedAptIdRef = useRef<number | null>(null)
+
+  const loadAll = useCallback((opts?: { silent?: boolean }) => {
     if (!aptId) return
-    setLoading(true)
-    setLoadError(null)
+    const silent = opts?.silent ?? false
+    const isFirstLoad = loadedAptIdRef.current !== aptId
+    if (isFirstLoad && !silent) {
+      setLoading(true)
+      setLoadError(null)
+    }
     Promise.all([
       fetchApartmentsAdmin(),
       fetchApartmentGaps(),
@@ -80,14 +86,23 @@ export function AdminApartmentDetail() {
           fetchTemplateNorms(apt.type).then(setTemplateNorms).catch((e) => console.error(friendlyMessage(e)))
         }
         setStaffList(st)
+        loadedAptIdRef.current = aptId
       })
-      .catch((e) => setLoadError(friendlyMessage(e)))
-      .finally(() => setLoading(false))
-  }
+      .catch((e) => {
+        if (isFirstLoad && !silent) {
+          setLoadError(friendlyMessage(e))
+        } else {
+          toast(friendlyMessage(e), 'error')
+        }
+      })
+      .finally(() => {
+        if (isFirstLoad && !silent) setLoading(false)
+      })
+  }, [aptId])
 
   useEffect(() => {
     loadAll()
-  }, [aptId, loadAll])
+  }, [loadAll])
 
   const gapItems = useMemo(() => gaps.filter((g) => g.gap > 0), [gaps])
 
@@ -101,7 +116,7 @@ export function AdminApartmentDetail() {
       } else {
         toast(t.admin.apartments.issued, 'success')
       }
-      loadAll()
+      loadAll({ silent: true })
     } catch (e) {
       toast(errorMessage(e), 'error')
     } finally {
@@ -152,7 +167,7 @@ export function AdminApartmentDetail() {
         {loading ? (
           <div className="p-6 text-center text-muted text-sm">{t.app.loading}</div>
         ) : loadError ? (
-          <div className="p-6"><ErrorState onRetry={loadAll} /></div>
+          <div className="p-6"><ErrorState onRetry={() => loadAll()} /></div>
         ) : !apartment ? (
           <div className="p-6 text-center text-muted text-sm">{t.common.notFound}</div>
         ) : (
@@ -208,7 +223,7 @@ export function AdminApartmentDetail() {
                 overrideNorms={overrideNorms}
                 templateNorms={templateNorms}
                 apartments={allApartments}
-                onReload={loadAll}
+                onReload={() => loadAll({ silent: true })}
               />
             )}
 

@@ -95,7 +95,7 @@ export function CleaningSheet({ backTo }: { backTo?: string }) {
     }
   }, [goBackTimer])
 
-  const writeoffItems = useMemo(() => norms.filter((nr) => writeoffTypes.includes(nr.norm_type)), [norms])
+  const writeoffItems = useMemo(() => norms.filter((nr) => writeoffTypes.includes(nr.norm_type) && nr.qty > 0), [norms])
   const needsStaff = writeoffItems.length > 0
 
   const toggleStaff = (staffId: number) => {

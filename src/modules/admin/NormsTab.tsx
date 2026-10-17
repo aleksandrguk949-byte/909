@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useI18n } from '@/i18n'
 import { toast, errorMessage } from '@/lib/toast'
 import { Plus, Trash2, CreditCard as Edit3, MoveVertical as MoreVertical, RotateCcw, Copy, Download, Ban } from 'lucide-react'
@@ -63,15 +63,13 @@ export function NormsTab({
   const [openMenu, setOpenMenu] = useState<NormType | null>(null)
   const [sectionLoading, setSectionLoading] = useState<NormType | null>(null)
 
-  const loadCatalog = useCallback(async () => {
+  useEffect(() => {
     if (catalogLoaded) return
-    try {
-      const items = await fetchNormCatalog()
-      setCatalog(items)
-      setCatalogLoaded(true)
-    } catch (e) {
-      toast(friendlyMessage(e), 'error')
-    }
+    let cancelled = false
+    fetchNormCatalog()
+      .then((items) => { if (!cancelled) { setCatalog(items); setCatalogLoaded(true) } })
+      .catch((e) => { if (!cancelled) toast(friendlyMessage(e), 'error') })
+    return () => { cancelled = true }
   }, [catalogLoaded])
 
   const merged = useMemo(
@@ -79,13 +77,11 @@ export function NormsTab({
     [templateNorms, overrideNorms],
   )
 
-  const handleAdd = async (nt: NormType) => {
-    await loadCatalog()
+  const handleAdd = (nt: NormType) => {
     setEditing({ normType: nt, itemId: null, qty: 1, note: null, isEdit: false })
   }
 
-  const handleEdit = async (row: MergedNormRow, nt: NormType) => {
-    await loadCatalog()
+  const handleEdit = (row: MergedNormRow, nt: NormType) => {
     setEditing({
       normType: nt,
       itemId: row.itemId,
@@ -217,7 +213,8 @@ export function NormsTab({
 
   const getItemName = (itemId: number): string => {
     const item = catalog.find((i) => i.id === itemId)
-    return item?.name ?? `#${n(String(itemId))}`
+    if (!item) return `#${n(String(itemId))}`
+    return item.active ? item.name : `${item.name} (${t.admin.apartments.itemInactive})`
   }
 
   const getItemInfo = (itemId: number) => catalog.find((i) => i.id === itemId)

@@ -199,7 +199,8 @@ function NormEditorModal({
 }) {
   const { t } = useI18n()
   const [itemId, setItemId] = useState(norm?.item_id ?? 0)
-  const [qty, setQty] = useState(String(norm?.qty ?? 1))
+  const [qty, setQty] = useState(String(norm?.qty ?? 0))
+  const qtyValid = isFinite(Number(qty)) && Number(qty) >= 0
   const [note, setNote] = useState(norm?.note ?? '')
   const selectedItem = items.find((i) => i.item_id === itemId)
 
@@ -234,7 +235,7 @@ function NormEditorModal({
           <button onClick={onClose} className="flex-1 bg-app text-ink rounded-xl py-3 font-medium">{t.cleaning.cancel}</button>
           <button
             onClick={() => onSave(normType, itemId, Number(qty), note.trim() || null)}
-            disabled={!itemId || !qty}
+            disabled={!itemId || !qty || !qtyValid}
             className="flex-1 bg-accent text-white rounded-xl py-3 font-medium disabled:opacity-40 flex items-center justify-center gap-2"
           >
             <Check className="w-4 h-4" />

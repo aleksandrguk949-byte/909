@@ -1,9 +1,9 @@
 import { useState, useMemo } from 'react'
 import { useI18n } from '@/i18n'
 import { X, Check, Loader as Loader2 } from 'lucide-react'
-import type { NormType } from '@/lib/database.types'
+import type { NormType, BaseUnit } from '@/lib/database.types'
 import type { NormCatalogItem } from './norms'
-import { formatQty } from '@/lib/format'
+import { unitLabel } from '@/lib/format'
 
 interface Props {
   normType: NormType
@@ -37,16 +37,22 @@ export function NormEditor({
     cleaning_consumption: t.apartments.normCleaning,
   }
   const [selectedItemId, setSelectedItemId] = useState(itemId ?? null)
-  const [qtyStr, setQtyStr] = useState(String(qty || 1))
+  const [qtyStr, setQtyStr] = useState(String(qty))
   const [noteStr, setNoteStr] = useState(note ?? '')
   const [search, setSearch] = useState('')
   const [showAll, setShowAll] = useState(false)
 
   const defaultKind = normType === 'asset_standing' ? 'asset' : 'consumable'
 
+  const qtyValid = useMemo(() => {
+    const num = Number(qtyStr)
+    return isFinite(num) && num >= 0
+  }, [qtyStr])
+
   const filteredItems = useMemo(() => {
     const q = search.toLowerCase().trim()
     return catalog.filter((item) => {
+      if (!item.active && item.id !== selectedItemId) return false
       if (excludeItemIds.has(item.id) && item.id !== selectedItemId) return false
       if (!showAll && item.kind !== defaultKind) return false
       if (q && !item.name.toLowerCase().includes(q)) return false
@@ -112,14 +118,17 @@ export function NormEditor({
                 step="0.001"
                 value={qtyStr}
                 onChange={(e) => setQtyStr(e.target.value)}
-                className="flex-1 bg-app rounded-lg px-4 py-2.5 text-sm focus:outline-none"
+                className={`flex-1 bg-app rounded-lg px-4 py-2.5 text-sm focus:outline-none ${!qtyValid ? 'border border-bad' : ''}`}
               />
               {selectedItem && (
                 <span className="text-sm text-muted shrink-0">
-                  {formatQty(1, { base_unit: selectedItem.base_unit as 'pcs', pack_size: selectedItem.pack_size, pack_label: selectedItem.pack_label })}
+                  {unitLabel(selectedItem.base_unit as BaseUnit)}
                 </span>
               )}
             </div>
+            {!qtyValid && (
+              <p className="text-xs text-bad mt-1">{t.admin.apartments.qtyInvalid}</p>
+            )}
           </div>
           <div>
             <label className="block text-sm text-muted mb-1">{t.admin.move.note}</label>
@@ -137,7 +146,7 @@ export function NormEditor({
           </button>
           <button
             onClick={() => onSave(selectedItemId ?? 0, Number(qtyStr), noteStr.trim() || null)}
-            disabled={!selectedItemId || !qtyStr || saving}
+            disabled={!selectedItemId || !qtyStr || !qtyValid || saving}
             className="flex-1 bg-accent text-white rounded-lg py-3 font-medium text-sm disabled:opacity-40 flex items-center justify-center gap-2 min-h-[44px]"
           >
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}

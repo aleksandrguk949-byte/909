@@ -11,6 +11,10 @@ function unitShort(unit: BaseUnit): string {
   return currentDict().common.units[unit]
 }
 
+export function unitLabel(unit: BaseUnit): string {
+  return unitShort(unit)
+}
+
 export function formatDate(iso: string | null): string {
   if (!iso) return ''
   const d = new Date(iso)

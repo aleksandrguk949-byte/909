@@ -68,28 +68,23 @@ export interface NormCatalogItem {
   base_unit: string
   pack_size: number
   pack_label: string
+  active: boolean
 }
 
 export async function fetchNormCatalog(): Promise<NormCatalogItem[]> {
   const { data: items, error, status } = await supabase
     .from('items')
     .select('id,name,base_unit,pack_size,pack_label,category_id,active')
-    .eq('active', true)
     .order('name')
   if (error) throw toApiError(error, status)
 
   const catIds = Array.from(new Set((items ?? []).map((i) => i.category_id)))
-  const catResults = catIds.length
-    ? await Promise.all(
-        catIds.map((id) => supabase.from('categories').select('id,name,kind').eq('id', id).maybeSingle()),
-      )
-    : []
-  for (const r of catResults) if (r.error) throw toApiError(r.error, r.status)
+  const { data: cats, error: catError, status: catStatus } = catIds.length
+    ? await supabase.from('categories').select('id,name,kind').in('id', catIds)
+    : { data: [], error: null, status: 200 }
+  if (catError) throw toApiError(catError, catStatus)
   const catMap = new Map(
-    catResults
-      .map((r) => r.data as Category | null)
-      .filter((c): c is Category => c !== null)
-      .map((c) => [c.id, c]),
+    (cats as Category[] | null ?? []).map((c) => [c.id, c]),
   )
 
   return (items ?? []).map((i) => {
@@ -102,6 +97,7 @@ export async function fetchNormCatalog(): Promise<NormCatalogItem[]> {
       base_unit: i.base_unit,
       pack_size: i.pack_size,
       pack_label: i.pack_label,
+      active: i.active,
     }
   })
 }
