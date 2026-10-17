@@ -53,6 +53,7 @@ export function NormsTab({
   }
   const [catalog, setCatalog] = useState<NormCatalogItem[]>([])
   const [catalogLoaded, setCatalogLoaded] = useState(false)
+  const [catalogError, setCatalogError] = useState(false)
   const [editing, setEditing] = useState<EditingState | null>(null)
   const [savingNorm, setSavingNorm] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState<{ id: number; hasTemplate: boolean } | null>(null)
@@ -63,13 +64,18 @@ export function NormsTab({
   const [openMenu, setOpenMenu] = useState<NormType | null>(null)
   const [sectionLoading, setSectionLoading] = useState<NormType | null>(null)
 
-  useEffect(() => {
-    if (catalogLoaded) return
+  const loadCatalog = () => {
+    setCatalogError(false)
     let cancelled = false
     fetchNormCatalog()
       .then((items) => { if (!cancelled) { setCatalog(items); setCatalogLoaded(true) } })
-      .catch((e) => { if (!cancelled) toast(friendlyMessage(e), 'error') })
+      .catch((e) => { if (!cancelled) { setCatalogError(true); toast(friendlyMessage(e), 'error') } })
     return () => { cancelled = true }
+  }
+
+  useEffect(() => {
+    if (catalogLoaded) return
+    return loadCatalog()
   }, [catalogLoaded])
 
   const merged = useMemo(
@@ -234,6 +240,15 @@ export function NormsTab({
       <p className="text-xs text-muted bg-app rounded-xl px-3 py-2.5">
         {t.admin.apartments.normsHint}
       </p>
+
+      {catalogError && !catalogLoaded && (
+        <button
+          onClick={loadCatalog}
+          className="text-accent text-xs px-2 min-h-[44px]"
+        >
+          {t.retry}
+        </button>
+      )}
 
       {normTypeOrder.map((nt) => {
         const rows = merged.get(nt) ?? []
