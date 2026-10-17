@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { supabase } from '@/lib/supabase'
 import type { Profile, AppRole } from '@/lib/database.types'
 import { toApiError } from '@/lib/errors'
-import { get as idbGet, set as idbSet } from 'idb-keyval'
+import { get as idbGet, set as idbSet, del as idbDel } from 'idb-keyval'
 import { startOutboxSync, stopOutboxSync } from '@/lib/outbox'
 import { setSentryUser } from '@/lib/sentry'
 import { currentDict } from '@/i18n'
@@ -57,9 +57,10 @@ export const useAuth = create<AuthStore>((set, get) => ({
         }
         return
       }
+      const userId = session.user.id
 
       try {
-        const profile = await fetchProfile(session.user.id)
+        const profile = await fetchProfile(userId)
         if (!profile || !profile.active) {
           await supabase.auth.signOut()
           set({ state: 'login', profile: null, error: currentDict().accountDisabled })
@@ -73,7 +74,7 @@ export const useAuth = create<AuthStore>((set, get) => ({
         const apiError = toApiError(e)
         if (apiError.isNetwork) {
           const cached = await getCachedProfile()
-          if (cached && cached.active) {
+          if (cached && cached.active && cached.id === userId) {
             startOutboxSync(cached.id)
             setSentryUser(cached.id)
             set({ state: 'ready', profile: cached, error: null })
@@ -123,7 +124,8 @@ export const useAuth = create<AuthStore>((set, get) => ({
       return
     }
     try {
-      const profile = await fetchProfile(session.user.id)
+      const userId = session.user.id
+      const profile = await fetchProfile(userId)
       if (!profile || !profile.active) {
         await supabase.auth.signOut()
         set({ state: 'login', profile: null, error: currentDict().accountDisabled })
@@ -137,7 +139,7 @@ export const useAuth = create<AuthStore>((set, get) => ({
       const apiError = toApiError(e)
       if (apiError.isNetwork) {
         const cached = await getCachedProfile()
-        if (cached && cached.active) {
+        if (cached && cached.active && cached.id === session.user.id) {
           startOutboxSync(cached.id)
           set({ state: 'ready', profile: cached, error: null })
         } else {
@@ -194,6 +196,7 @@ export const useAuth = create<AuthStore>((set, get) => ({
     stopOutboxSync()
     setSentryUser(null)
     await supabase.auth.signOut()
+    await idbDel(PROFILE_CACHE_KEY).catch(() => {})
     set({ state: 'login', profile: null, error: null })
   },
 }))
@@ -209,6 +212,7 @@ export function setupAuthListener() {
       if (useAuth.getState().state === 'login') return
       stopOutboxSync()
       setSentryUser(null)
+      void idbDel(PROFILE_CACHE_KEY).catch(() => {})
       useAuth.setState({ state: 'login', profile: null, error: null })
       return
     }
@@ -235,6 +239,24 @@ export function setupAuthListener() {
 
     // For any other event, check if token refresh failed
     // This is handled by the error in onAuthStateChange
+  })
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') return
+    const { state, profile } = useAuth.getState()
+    if (state !== 'ready' || !profile) return
+    if (!navigator.onLine) return
+    fetchProfile(profile.id)
+      .then(async (fresh) => {
+        if (!fresh || !fresh.active) {
+          await useAuth.getState().signOut()
+          useAuth.setState({ error: currentDict().accountDisabled })
+          return
+        }
+        await cacheProfile(fresh)
+        useAuth.setState({ profile: fresh, error: null })
+      })
+      .catch(() => {})
   })
 }
 

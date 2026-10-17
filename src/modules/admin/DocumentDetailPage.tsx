@@ -115,7 +115,7 @@ export function DocumentDetailPage() {
   const openAttachment = async (path: string) => {
     try {
       const url = await createSignedUrl(path)
-      window.open(url, '_blank')
+      window.open(url, '_blank', 'noopener,noreferrer')
     } catch (e) {
       toast(errorMessage(e), 'error')
     }

@@ -868,7 +868,7 @@ function WhatsappSection({
     }
     const digits = contact.phone_e164.replace(/[^0-9]/g, '')
     const encoded = encodeURIComponent(parts.join('\n'))
-    window.open(`https://wa.me/${digits}?text=${encoded}`, '_blank')
+    window.open(`https://wa.me/${digits}?text=${encoded}`, '_blank', 'noopener,noreferrer')
   }
 
   if (contacts.length === 0) {

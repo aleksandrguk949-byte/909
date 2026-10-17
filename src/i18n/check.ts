@@ -26,6 +26,40 @@ const dicts: Record<string, Set<string>> = {
 const pairs: [string, string][] = [['ru', 'en'], ['ru', 'ar'], ['en', 'ar']]
 let hasMissing = false
 
+const PLACEHOLDER_RE = /\{(\w+)\}/g
+
+function collectPlaceholders(obj: Record<string, unknown>, prefix = ''): Record<string, Set<string>> {
+  const out: Record<string, Set<string>> = {}
+  for (const [k, v] of Object.entries(obj)) {
+    const path = prefix ? `${prefix}.${k}` : k
+    if (v !== null && typeof v === 'object' && !Array.isArray(v)) {
+      Object.assign(out, collectPlaceholders(v as Record<string, unknown>, path))
+    } else if (typeof v === 'string') {
+      out[path] = new Set([...v.matchAll(PLACEHOLDER_RE)].map((m) => m[1]))
+    }
+  }
+  return out
+}
+
+const placeholders: Record<string, Record<string, Set<string>>> = {
+  en: collectPlaceholders(en as unknown as Record<string, unknown>),
+  ar: collectPlaceholders(ar as unknown as Record<string, unknown>),
+  ru: collectPlaceholders(ru as unknown as Record<string, unknown>),
+}
+
+for (const [a, b] of pairs) {
+  for (const key of dicts[a]) {
+    if (!dicts[b].has(key)) continue
+    const inA = placeholders[a][key] ?? new Set<string>()
+    const inB = placeholders[b][key] ?? new Set<string>()
+    const same = inA.size === inB.size && [...inA].every((p) => inB.has(p))
+    if (!same) {
+      console.error(`Placeholder mismatch for key "${key}": ${a} {${[...inA].sort().join(', ')}} vs ${b} {${[...inB].sort().join(', ')}}`)
+      hasMissing = true
+    }
+  }
+}
+
 for (const [a, b] of pairs) {
   const missingInB = [...dicts[a]].filter((k) => !dicts[b].has(k))
   if (missingInB.length > 0) {

@@ -1,4 +1,4 @@
-import { createClient } from 'npm:@supabase/supabase-js@2.45.4';
+import { createClient } from 'npm:@supabase/supabase-js@2.57.4';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': Deno.env.get('ALLOWED_ORIGIN') ?? Deno.env.get('ADMIN_CORS_ORIGIN') ?? '*',
@@ -105,7 +105,8 @@ Deno.serve(async (req) => {
         if (!active && target.role === 'admin' && (await countAdmins(target.id)) === 0) return json({ error: 'last_admin', message: 'Cannot deactivate the last admin' }, 400);
         const { error } = await admin.auth.admin.updateUserById(b.id, { ban_duration: active ? 'none' : '876000h' });
         if (error) return json({ error: 'update_failed', message: error.message }, 400);
-        await admin.from('profiles').update({ active }).eq('id', b.id);
+        const { error: pe } = await admin.from('profiles').update({ active }).eq('id', b.id);
+        if (pe) return json({ error: 'update_failed', message: pe.message }, 400);
         return json({ ok: true });
       }
       case 'rename': {
@@ -114,7 +115,8 @@ Deno.serve(async (req) => {
         const name = String(b.full_name ?? '').trim();
         if (!name) return json({ error: 'missing_name', message: 'Name is required' }, 400);
         if (name.length > 100) return json({ error: 'name_too_long', message: 'Name must be 100 characters or fewer' }, 400);
-        await admin.from('profiles').update({ full_name: name }).eq('id', b.id);
+        const { error: pe } = await admin.from('profiles').update({ full_name: name }).eq('id', b.id);
+        if (pe) return json({ error: 'update_failed', message: pe.message }, 400);
         return json({ ok: true });
       }
       case 'set_role': {
@@ -138,6 +140,7 @@ Deno.serve(async (req) => {
         return json({ error: 'unknown_action', message: 'Unknown action' }, 400);
     }
   } catch (e) {
-    return json({ error: 'internal', message: String(e) }, 500);
+    console.error('admin-users error:', e);
+    return json({ error: 'internal', message: 'Internal error' }, 500);
   }
 });
