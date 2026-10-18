@@ -15,6 +15,7 @@ import type { Incident, IncidentKind, IncidentStatus } from '@/lib/database.type
 import type { SvApartment, SvNorm, SvItem, ApartmentNote, Contact, NormType } from '@/lib/database.types'
 import { useAuth } from '@/modules/core/store'
 import { useI18n } from '@/i18n'
+import { supabase } from '@/lib/supabase'
 import { formatDateTime, isToday, formatQty } from '@/lib/format'
 import { toast, errorMessage } from '@/lib/toast'
 import { getOutboxSummary, getOutboxEntries, subscribe, flushOutbox, retryMediaEntry, discardMediaEntry, retryFailedEntry, deleteFailedEntry, type OutboxEntry } from '@/lib/outbox'
@@ -137,10 +138,17 @@ export function QrApartmentPage() {
     window.addEventListener('focus', onVisible)
     document.addEventListener('visibilitychange', onVisible)
     const interval = setInterval(() => { if (document.visibilityState === 'visible' && navigator.onLine) loadAll().catch(() => {}) }, 20000)
+    const channel = supabase
+      .channel('qr-contacts')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'contacts' }, () => { loadAll().catch(() => {}) })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'contacts' }, () => { loadAll().catch(() => {}) })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'contacts' }, () => { loadAll().catch(() => {}) })
+      .subscribe()
     return () => {
       window.removeEventListener('focus', onVisible)
       document.removeEventListener('visibilitychange', onVisible)
       clearInterval(interval)
+      supabase.removeChannel(channel)
     }
   }, [loadAll])
 
