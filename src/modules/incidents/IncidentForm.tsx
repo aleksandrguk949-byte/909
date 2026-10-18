@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { fetchApartments } from '@/modules/apartments/api'
+import { fetchApartments, fetchNorms } from '@/modules/apartments/api'
 import { fetchItems, createIncident, uploadIncidentPhoto, cleanupPhotos } from '@/modules/incidents/api'
-import type { SvApartment, SvItem, IncidentKind } from '@/lib/database.types'
+import type { SvApartment, SvItem, SvNorm, IncidentKind } from '@/lib/database.types'
 import { useAuth } from '@/modules/core/store'
 import { useI18n } from '@/i18n'
 import { friendlyMessage } from '@/lib/errors'
@@ -10,7 +10,7 @@ import { ErrorState } from '@/components/ErrorState'
 import { resolveMime, isHeicFile } from '@/lib/files'
 import { compressImage } from '@/lib/compress'
 import { currentDict } from '@/i18n'
-import { ArrowLeft, Camera, Video as VideoIcon, X, Loader as Loader2 } from 'lucide-react'
+import { ArrowLeft, Camera, Video as VideoIcon, X, Loader as Loader2, TriangleAlert as AlertTriangle } from 'lucide-react'
 
 const MAX_FILES = 6
 const MAX_FILE_SIZE = 50 * 1024 * 1024
@@ -47,6 +47,7 @@ export function IncidentForm({ backTo }: { backTo?: string }) {
   const profile = useAuth((s) => s.profile)
   const [apartments, setApartments] = useState<SvApartment[]>([])
   const [items, setItems] = useState<SvItem[]>([])
+  const [aptNorms, setAptNorms] = useState<SvNorm[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [aptId, setAptId] = useState<number | null>(preselectApt ? Number(preselectApt) : null)
@@ -60,7 +61,10 @@ export function IncidentForm({ backTo }: { backTo?: string }) {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [converting, setConverting] = useState(false)
+  const [showAllItems, setShowAllItems] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const photoInputRef = useRef<HTMLInputElement>(null)
+  const videoInputRef = useRef<HTMLInputElement>(null)
   const clientOpIdRef = useRef<string>(crypto.randomUUID())
   const isOnline = navigator.onLine
 
@@ -79,9 +83,23 @@ export function IncidentForm({ backTo }: { backTo?: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.id])
 
-  const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const incoming = Array.from(e.target.files ?? [])
-    e.target.value = ''
+  useEffect(() => {
+    if (!aptId || !profile) return
+    fetchNorms(profile.id, aptId)
+      .then((n) => setAptNorms(n))
+      .catch(() => setAptNorms([]))
+  }, [aptId, profile])
+
+  const normItemIds = useMemo(() => new Set(aptNorms.map((n) => n.item_id)), [aptNorms])
+  const normItems = useMemo(() => items.filter((i) => normItemIds.has(i.id)), [items, normItemIds])
+  const itemOptions = useMemo(() => {
+    const base = showAllItems ? items : normItems
+    return base.slice().sort((a, b) => a.name.localeCompare(b.name))
+  }, [items, normItems, showAllItems])
+
+  const selectedItem = useMemo(() => items.find((i) => i.id === itemId) ?? null, [items, itemId])
+
+  const handlePhotoSelect = async (incoming: File[]) => {
     if (incoming.length === 0) return
     const remaining = MAX_FILES - photos.length
     if (remaining <= 0) {
@@ -125,6 +143,12 @@ export function IncidentForm({ backTo }: { backTo?: string }) {
     }
   }
 
+  const onFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? [])
+    e.target.value = ''
+    handlePhotoSelect(files)
+  }
+
   const removePhoto = (idx: number) => {
     setPhotos((prev) => prev.filter((_, i) => i !== idx))
     setPhotoPreviews((prev) => { URL.revokeObjectURL(prev[idx]); return prev.filter((_, i) => i !== idx) })
@@ -132,6 +156,8 @@ export function IncidentForm({ backTo }: { backTo?: string }) {
 
   const handleSubmit = async () => {
     if (!aptId) { setError(t.incidents.apartment); return }
+    if (photos.length === 0) { setError(t.incidents.photosRequired); return }
+    if (!itemId && !freeText.trim()) { setError(t.incidents.freeText); return }
     setSubmitting(true); setError(null)
     const photoPaths: string[] = []
     try {
@@ -158,87 +184,165 @@ export function IncidentForm({ backTo }: { backTo?: string }) {
     } finally { setSubmitting(false) }
   }
 
-  if (loading) return <div className="px-4 pt-8 text-center text-muted">{t.app.loading}</div>
-  if (loadError) return <ErrorState onRetry={loadReferenceData} />
+  const handleClose = () => {
+    photoPreviews.forEach((url) => URL.revokeObjectURL(url))
+    if (backTo) navigate(backTo)
+    else navigate(-1)
+  }
 
-  return (
-    <div className="min-h-screen bg-app">
-      <div className="bg-surface border-b border-line sticky top-0 z-30">
-        <div className="px-4 py-3 flex items-center gap-3">
-          <button onClick={() => backTo ? navigate(backTo) : navigate(-1)} className="p-1 -ml-1"><ArrowLeft className="w-5 h-5 text-muted" /></button>
-          <h1 className="text-lg font-semibold text-ink">{t.incidents.title}</h1>
+  if (loading) {
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <Loader2 className="w-6 h-6 text-white animate-spin" />
+      </div>
+    )
+  }
+  if (loadError) {
+    return (
+      <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center">
+        <div className="absolute inset-0" onClick={handleClose} />
+        <div className="relative bg-surface w-full sm:max-w-md max-h-[85vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl border border-line p-4">
+          <ErrorState onRetry={loadReferenceData} />
         </div>
       </div>
-      <div className="px-4 pt-4 pb-[calc(10rem+env(safe-area-inset-bottom,0px))] space-y-4">
-        <Field label={t.incidents.apartment}>
-          <select value={aptId ?? ''} onChange={(e) => setAptId(e.target.value ? Number(e.target.value) : null)}
-            className="w-full bg-surface rounded-xl px-4 py-3 text-sm border border-line focus:border-accent focus:outline-none">
-            <option value="">—</option>
-            {apartments.map((a) => <option key={a.id} value={a.id}>{a.code}</option>)}
-          </select>
-        </Field>
-        <Field label={t.incidents.item}>
-          <select value={itemId ?? ''} onChange={(e) => { const v = e.target.value; setItemId(v ? Number(v) : null); if (v) setFreeText('') }}
-            className="w-full bg-surface rounded-xl px-4 py-3 text-sm border border-line focus:border-accent focus:outline-none mb-2">
-            <option value="">— {t.incidents.freeText} —</option>
-            {items.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
-          </select>
-          {!itemId && <input value={freeText} onChange={(e) => setFreeText(e.target.value)} placeholder={t.incidents.freeText}
-            className="w-full bg-surface rounded-xl px-4 py-3 text-sm border border-line focus:border-accent focus:outline-none" />}
-        </Field>
-        <Field label={t.incidents.kind}>
-          <div className="grid grid-cols-2 gap-2">
-            {kinds.map((k) => (
-              <button key={k.value} onClick={() => setKind(k.value)}
-                className={`rounded-xl py-2.5 text-sm border transition-colors ${kind === k.value ? 'border-accent bg-accent-soft text-accent font-medium' : 'border-line bg-surface text-muted'}`}>
-                {k.label}
-              </button>
-            ))}
-          </div>
-        </Field>
-        <Field label={t.incidents.qty}>
-          <input type="number" min="1" value={qty} onChange={(e) => setQty(e.target.value)}
-            className="w-full bg-surface rounded-xl px-4 py-3 text-sm border border-line focus:border-accent focus:outline-none" />
-        </Field>
-        <Field label={t.incidents.comment}>
-          <textarea value={comment} onChange={(e) => setComment(e.target.value)} rows={2}
-            className="w-full bg-surface rounded-xl px-4 py-3 text-sm border border-line focus:border-accent focus:outline-none resize-none" />
-        </Field>
-        <Field label={t.incidents.photos}>
-          <div className="flex gap-2 flex-wrap">
-            {photoPreviews.map((src, idx) => {
-              const file = photos[idx]
-              const isVideo = file ? isVideoFile(file) : false
-              return (
-                <div key={idx} className="relative w-20 h-20">
-                  {isVideo ? (
-                    <div className="w-full h-full bg-app rounded-xl border border-line flex items-center justify-center">
-                      <VideoIcon className="w-6 h-6 text-muted" />
-                    </div>
-                  ) : (
-                    <img src={src} alt="" className="w-full h-full object-cover rounded-xl" />
-                  )}
-                  <button onClick={() => removePhoto(idx)} className="absolute -top-1 -right-1 w-5 h-5 bg-bad text-white rounded-full flex items-center justify-center">
-                    <X className="w-3 h-3" />
-                  </button>
+    )
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex flex-col justify-end anim-scrim" onClick={handleClose} role="dialog" aria-modal="true" aria-label={t.incidents.title}>
+      <div className="bg-surface rounded-t-2xl max-h-[92dvh] overflow-y-auto anim-sheet" onClick={(e) => e.stopPropagation()}>
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="w-10 h-1 rounded-full" style={{ background: 'var(--line)' }} />
+        </div>
+        <div className="px-5 py-3 flex items-center justify-between border-b border-line">
+          <h2 className="text-base font-semibold text-ink">{t.incidents.title}</h2>
+          <button onClick={handleClose} className="p-2.5 -mr-1 rounded-lg hover:bg-app transition-colors" aria-label={t.common.close}>
+            <X className="w-5 h-5 text-muted" />
+          </button>
+        </div>
+        <div className="px-5 py-4 space-y-5">
+          <Field label={t.incidents.apartment}>
+            <select value={aptId ?? ''} onChange={(e) => { const v = e.target.value; setAptId(v ? Number(v) : null); setItemId(null); setFreeText(''); setShowAllItems(false) }}
+              className="w-full bg-app rounded-xl px-4 py-3 text-sm border border-line focus:border-accent focus:outline-none">
+              <option value="">—</option>
+              {apartments.map((a) => <option key={a.id} value={a.id}>{a.code}</option>)}
+            </select>
+          </Field>
+
+          {aptId && (
+            <Field label={t.incidents.item}>
+              <div className="flex items-center gap-2 mb-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAllItems(false)}
+                  className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${!showAllItems ? 'bg-accent border-accent text-white' : 'bg-surface border-line text-muted'}`}
+                >
+                  {t.incidents.fromNorms}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowAllItems(true)}
+                  className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${showAllItems ? 'bg-accent border-accent text-white' : 'bg-surface border-line text-muted'}`}
+                >
+                  {t.incidents.allItems}
+                </button>
+              </div>
+              <select value={itemId ?? ''} onChange={(e) => { const v = e.target.value; setItemId(v ? Number(v) : null); if (v) setFreeText('') }}
+                className="w-full bg-app rounded-xl px-4 py-3 text-sm border border-line focus:border-accent focus:outline-none mb-2">
+                <option value="">— {t.incidents.freeText} —</option>
+                {itemOptions.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
+              </select>
+              {!itemId && (
+                <input value={freeText} onChange={(e) => setFreeText(e.target.value)} placeholder={t.incidents.freeText}
+                  className="w-full bg-app rounded-xl px-4 py-3 text-sm border border-line focus:border-accent focus:outline-none" />
+              )}
+              {selectedItem && (
+                <p className="text-xs text-muted mt-1">{selectedItem.category}</p>
+              )}
+            </Field>
+          )}
+
+          <Field label={t.incidents.kind}>
+            <div className="grid grid-cols-2 gap-2">
+              {kinds.map((k) => (
+                <button key={k.value} type="button" onClick={() => setKind(k.value)}
+                  className={`rounded-xl py-2.5 text-sm border transition-colors ${kind === k.value ? 'border-accent bg-accent-soft text-accent font-medium' : 'border-line bg-app text-muted'}`}>
+                  {k.label}
+                </button>
+              ))}
+            </div>
+          </Field>
+
+          <Field label={t.incidents.qty}>
+            <input type="number" min="1" value={qty} onChange={(e) => setQty(e.target.value)}
+              className="w-full bg-app rounded-xl px-4 py-3 text-sm border border-line focus:border-accent focus:outline-none" />
+          </Field>
+
+          <Field label={t.incidents.comment}>
+            <textarea value={comment} onChange={(e) => setComment(e.target.value)} rows={2}
+              className="w-full bg-app rounded-xl px-4 py-3 text-sm border border-line focus:border-accent focus:outline-none resize-none" />
+          </Field>
+
+          <Field label={t.incidents.photos}>
+            <div className="flex gap-2 flex-wrap">
+              {photoPreviews.map((src, idx) => {
+                const file = photos[idx]
+                const isVideo = file ? isVideoFile(file) : false
+                return (
+                  <div key={idx} className="relative w-20 h-20">
+                    {isVideo ? (
+                      <div className="w-full h-full bg-app rounded-xl border border-line flex items-center justify-center">
+                        <VideoIcon className="w-6 h-6 text-muted" />
+                      </div>
+                    ) : (
+                      <img src={src} alt="" className="w-full h-full object-cover rounded-xl" />
+                    )}
+                    <button type="button" onClick={() => removePhoto(idx)} className="absolute -top-1 -right-1 w-5 h-5 bg-bad text-white rounded-full flex items-center justify-center">
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                )
+              })}
+              {converting && (
+                <div className="w-20 h-20 border-2 border-dashed border-line rounded-xl flex items-center justify-center text-muted">
+                  <Loader2 className="w-5 h-5 animate-spin" />
                 </div>
-              )
-            })}
-            {photos.length < MAX_FILES && isOnline && !converting && (
-              <button onClick={() => fileInputRef.current?.click()} className="w-20 h-20 border-2 border-dashed border-line rounded-xl flex items-center justify-center text-muted hover:border-accent">
-                <Camera className="w-6 h-6" />
-              </button>
+              )}
+              {photos.length < MAX_FILES && !converting && isOnline && (
+                <>
+                  <button type="button" onClick={() => photoInputRef.current?.click()} className="w-20 h-20 border-2 border-dashed border-line rounded-xl flex items-center justify-center text-muted hover:border-accent" aria-label={t.qr.photo}>
+                    <Camera className="w-6 h-6" />
+                  </button>
+                  <button type="button" onClick={() => videoInputRef.current?.click()} className="w-20 h-20 border-2 border-dashed border-line rounded-xl flex items-center justify-center text-muted hover:border-accent" aria-label={t.qr.video}>
+                    <VideoIcon className="w-6 h-6" />
+                  </button>
+                </>
+              )}
+            </div>
+            <input ref={fileInputRef} type="file" accept="image/*,.heic,.heif" multiple onChange={onFileInputChange} className="hidden" />
+            <input ref={photoInputRef} type="file" accept="image/*" capture="environment" multiple onChange={onFileInputChange} className="hidden" />
+            <input ref={videoInputRef} type="file" accept="video/mp4,video/quicktime,video/webm,.mov,.webm" capture="environment" multiple onChange={onFileInputChange} className="hidden" />
+            {photos.length === 0 && (
+              <p className="text-xs text-warn mt-1.5 flex items-center gap-1">
+                <AlertTriangle className="w-3 h-3" />
+                {t.incidents.photosRequired}
+              </p>
             )}
-          </div>
-          <input ref={fileInputRef} type="file" accept="image/*,video/mp4,video/quicktime,video/webm,.mov,.webm,.heic,.heif" multiple onChange={handlePhotoSelect} className="hidden" />
-        </Field>
-        {error && <p className="text-sm text-bad">{error}</p>}
-      </div>
-      <div className="fixed bottom-16 left-0 right-0 bg-surface/95 backdrop-blur border-t border-line px-4 pt-3 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))] z-30">
-        <div className="max-w-lg mx-auto grid grid-cols-2 gap-3">
-          <button onClick={() => backTo ? navigate(backTo) : navigate(-1)} className="min-h-[48px] bg-app text-ink rounded-xl px-2 py-3 text-sm font-medium">{t.incidents.cancel}</button>
-          <button onClick={handleSubmit} disabled={submitting || converting || !isOnline}
-            className="min-h-[48px] bg-accent text-white rounded-xl px-2 py-3 text-sm font-medium disabled:opacity-40 flex items-center justify-center gap-2">
+          </Field>
+
+          {error && (
+            <div className="flex items-start gap-2 bg-bad-soft border border-line rounded-xl px-3 py-2.5">
+              <AlertTriangle className="w-4 h-4 text-bad mt-0.5 shrink-0" />
+              <p className="text-sm text-bad">{error}</p>
+            </div>
+          )}
+        </div>
+        <div className="sticky bottom-0 bg-surface border-t border-line px-5 py-3 flex gap-3">
+          <button onClick={handleClose} className="flex-1 bg-app text-ink rounded-xl py-3.5 min-h-[48px] font-medium">{t.incidents.cancel}</button>
+          <button
+            onClick={handleSubmit}
+            disabled={submitting || converting || !isOnline || !aptId || photos.length === 0}
+            className="flex-1 bg-accent text-white rounded-xl py-3.5 min-h-[48px] font-medium disabled:opacity-40 flex items-center justify-center gap-2">
             {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
             {isOnline ? t.incidents.submit : t.errors.needsNetworkAction}
           </button>

@@ -66,14 +66,6 @@ export async function uploadIncidentPhoto(
   userId: string,
   file: File,
 ): Promise<string> {
-  if (isHeicFile(file)) {
-    try {
-      await compressImage(file, 1280, 0.8)
-    } catch {
-      throw toApiError(new Error(currentDict().heicNotSupported))
-    }
-  }
-
   const mime = resolveMime(file)
 
   if (mime && (mime === 'video/mp4' || mime === 'video/quicktime' || mime === 'video/webm')) {
@@ -89,10 +81,19 @@ export async function uploadIncidentPhoto(
   const uuid = crypto.randomUUID()
   const path = `${userId}/${uuid}.jpg`
 
-  const compressed = await compressImage(file, 1280, 0.8)
+  let uploadBlob: Blob = file
+  if (isHeicFile(file)) {
+    try {
+      uploadBlob = await compressImage(file, 1280, 0.8)
+    } catch {
+      throw toApiError(new Error(currentDict().heicNotSupported))
+    }
+  } else {
+    uploadBlob = await compressImage(file, 1280, 0.8)
+  }
   const { error } = await supabase.storage
     .from('incident-photos')
-    .upload(path, compressed, { contentType: 'image/jpeg' })
+    .upload(path, uploadBlob, { contentType: 'image/jpeg' })
   if (error) throw toApiError(error)
   return path
 }

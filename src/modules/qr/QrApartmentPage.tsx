@@ -11,8 +11,7 @@ import {
   fetchWhatsappContacts,
   fetchApartmentIncidents,
 } from '@/modules/qr/api'
-import { fetchCleaningEvents } from '@/modules/cleaning/store'
-import type { SvCleaningEvent, Incident, IncidentKind, IncidentStatus } from '@/lib/database.types'
+import type { Incident, IncidentKind, IncidentStatus } from '@/lib/database.types'
 import type { SvApartment, SvNorm, SvItem, ApartmentNote, Contact, NormType } from '@/lib/database.types'
 import { useAuth } from '@/modules/core/store'
 import { useI18n } from '@/i18n'
@@ -28,13 +27,12 @@ import { ConfirmDialog } from '@/components/ConfirmDialog'
 
 const normTypeOrder: NormType[] = ['asset_standing', 'turnover_replenish', 'cleaning_consumption']
 
-type Tab = 'norms' | 'comments' | 'whatsapp' | 'history' | 'incidents'
-type DetailType = 'note' | 'cleaning' | 'incident'
+type Tab = 'norms' | 'comments' | 'whatsapp' | 'incidents'
+type DetailType = 'note' | 'incident'
 
 interface DetailState {
   type: DetailType
   note?: ApartmentNote
-  cleaning?: SvCleaningEvent
   incident?: Incident
 }
 
@@ -70,7 +68,6 @@ export function QrApartmentPage() {
   const [confirmFailedDeleteId, setConfirmFailedDeleteId] = useState<string | null>(null)
   const [retrying, setRetrying] = useState(false)
   const [tab, setTab] = useState<Tab>('norms')
-  const [cleaningEvents, setCleaningEvents] = useState<SvCleaningEvent[]>([])
   const [search, setSearch] = useState('')
   const [activeCategory, setActiveCategory] = useState<string>('')
   const [detail, setDetail] = useState<DetailState | null>(null)
@@ -92,7 +89,6 @@ export function QrApartmentPage() {
       fetchItems(),
       fetchNotes(aptId),
       fetchWhatsappContacts(),
-      fetchCleaningEvents(aptId),
       fetchApartmentIncidents(aptId),
     ])
     const apt = results[0].status === 'fulfilled' ? results[0].value : null
@@ -101,14 +97,12 @@ export function QrApartmentPage() {
     const it = results[2].status === 'fulfilled' ? results[2].value : []
     const no = results[3].status === 'fulfilled' ? results[3].value : []
     const ct = results[4].status === 'fulfilled' ? results[4].value : []
-    const ce = results[5].status === 'fulfilled' ? results[5].value : []
-    const inc = results[6].status === 'fulfilled' ? results[6].value : []
+    const inc = results[5].status === 'fulfilled' ? results[5].value : []
     setApartment(apt)
     setNorms(nr)
     setItems(it)
     setNotes(no)
     setContacts(ct)
-    setCleaningEvents(ce)
     setIncidents(inc)
     setLastUpdated(new Date())
   }, [aptId, profile])
@@ -311,7 +305,6 @@ export function QrApartmentPage() {
           <TabButton active={tab === 'norms'} onClick={() => setTab('norms')} label={t.qr.whatShouldBe} />
           <TabButton active={tab === 'comments'} onClick={() => setTab('comments')} label={t.qr.comments} />
           <TabButton active={tab === 'whatsapp'} onClick={() => setTab('whatsapp')} label={t.qr.whatsapp} />
-          <TabButton active={tab === 'history'} onClick={() => setTab('history')} label={t.qr.historyTab} />
           <TabButton active={tab === 'incidents'} onClick={() => setTab('incidents')} label={t.qr.incidentsTab} />
         </div>
       </div>
@@ -457,38 +450,6 @@ export function QrApartmentPage() {
             notePhotos={notePhotos}
             noteFileUrls={noteFileUrls}
           />
-        )}
-
-        {tab === 'history' && (
-          <div className="space-y-3">
-            {cleaningEvents.length === 0 ? (
-              <p className="text-sm text-muted text-center mt-8">{t.qr.noCleaningHistory}</p>
-            ) : (
-              cleaningEvents.map((ev) => (
-                <button
-                  key={ev.id}
-                  onClick={() => setDetail({ type: 'cleaning', cleaning: ev })}
-                  className="w-full text-left bg-surface rounded-xl border border-line px-4 py-3 transition-colors hover:bg-app active:bg-app"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-ink">{n(formatDateTime(ev.cleaned_at))}</span>
-                    <div className="flex items-center gap-2">
-                      {ev.status === 'reversed' && (
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-bad-soft text-bad font-medium">
-                          {t.qr.cleaningReversed}
-                        </span>
-                      )}
-                      <ChevronRight className="w-4 h-4 text-muted" />
-                    </div>
-                  </div>
-                  <p className="text-xs text-muted mt-1">
-                    {ev.staff_names ?? t.qr.staffNamesEmpty}
-                  </p>
-                  {ev.note && <p className="text-xs text-muted mt-1 line-clamp-2">{ev.note}</p>}
-                </button>
-              ))
-            )}
-          </div>
         )}
 
         {tab === 'incidents' && (
@@ -673,9 +634,6 @@ function DetailModal({
           {state.type === 'note' && state.note && (
             <NoteDetail note={state.note} fileUrls={noteFileUrls} t={t} n={n} />
           )}
-          {state.type === 'cleaning' && state.cleaning && (
-            <CleaningDetail event={state.cleaning} t={t} n={n} />
-          )}
           {state.type === 'incident' && state.incident && (
             <IncidentDetail incident={state.incident} fileUrls={incidentFileUrls} t={t} n={n} />
           )}
@@ -710,41 +668,6 @@ function NoteDetail({
       )}
       <div className="text-xs text-muted pt-2 border-t border-line">
         <span>{n(formatDateTime(note.created_at))}</span>
-      </div>
-    </>
-  )
-}
-
-function CleaningDetail({
-  event,
-  t,
-  n,
-}: {
-  event: SvCleaningEvent
-  t: ReturnType<typeof useI18n>['t']
-  n: ReturnType<typeof useI18n>['n']
-}) {
-  return (
-    <>
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-medium text-ink">{n(formatDateTime(event.cleaned_at))}</span>
-        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-          event.status === 'done' ? 'bg-ok-soft text-ok' : 'bg-bad-soft text-bad'
-        }`}>
-          {event.status === 'done' ? t.admin.apartments.done : t.admin.apartments.reversed}
-        </span>
-      </div>
-      <div className="space-y-2 pt-2 border-t border-line">
-        <div>
-          <span className="text-xs text-muted block mb-0.5">{t.qr.detailStaff}</span>
-          <span className="text-sm text-ink">{event.staff_names ?? t.qr.staffNamesEmpty}</span>
-        </div>
-        {event.note && (
-          <div>
-            <span className="text-xs text-muted block mb-0.5">{t.qr.detailNote}</span>
-            <span className="text-sm text-ink whitespace-pre-wrap">{event.note}</span>
-          </div>
-        )}
       </div>
     </>
   )

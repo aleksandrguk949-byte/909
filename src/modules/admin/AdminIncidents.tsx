@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { fetchAllIncidents, approveIncident } from '@/modules/admin/api'
 import { fetchApartmentsAdmin } from '@/modules/admin/api'
+import { supabase } from '@/lib/supabase'
 import type { Incident, Apartment, IncidentStatus, IncidentKind } from '@/lib/database.types'
 import { useI18n } from '@/i18n'
 import { formatDateTime } from '@/lib/format'
@@ -57,7 +58,20 @@ export function AdminIncidents() {
       .finally(() => setLoading(false))
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    load()
+    const channel = supabase
+      .channel('admin-incidents')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'incidents' }, () => { load() })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'incidents' }, () => { load() })
+      .subscribe()
+    const interval = setInterval(() => { if (document.visibilityState === 'visible') load() }, 30000)
+    return () => {
+      supabase.removeChannel(channel)
+      clearInterval(interval)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const aptMap = useMemo(() => new Map(apartments.map((a) => [a.id, a.code])), [apartments])
 
